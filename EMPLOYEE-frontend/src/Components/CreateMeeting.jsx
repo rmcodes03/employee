@@ -42,7 +42,7 @@ const CreateMeeting = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/auth/add_meeting', {
+      const response = await axios.post('https://backendemp.vercel.app/auth/add_meeting', {
         ...formData,
       });
       console.log(response.data);

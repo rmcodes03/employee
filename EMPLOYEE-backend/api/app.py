@@ -12,6 +12,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, FileField, DecimalField, SelectField, DateField, TimeField, EmailField, DateTimeField, BooleanField
 from wtforms.validators import DataRequired
 from flask_admin.form import rules
+from bson import ObjectId
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -24,8 +25,16 @@ CORS(app, resources={r"/auth/*": {
 }})
 
 # MongoDB configuration
-client = MongoClient('mongodb://risabh:risabh@localhost:27017/')
-db = client['ems']
+client = MongoClient(
+    'mongodb+srv://admin:priya@cluster0.l6dotpe.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
+    tls=True,
+    tlsCAFile='certs/ca-certificates.crt',
+    socketTimeoutMS=30000,
+    connectTimeoutMS=30000
+)
+
+  # Update this with your MongoDB URI
+db = client['employeee']
 
 # Mail configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -71,6 +80,7 @@ class TagListForm(FlaskForm):
     tag = StringField('Tag', validators=[DataRequired()])
 
 class ProjectForm(FlaskForm):
+    projectid = StringField('Project ID', validators=[DataRequired()])
     projectName = StringField('Project Name', validators=[DataRequired()])
     task = StringField('Task', validators=[DataRequired()])
     tags = StringField('Tags', validators=[DataRequired()])
@@ -122,7 +132,7 @@ class TagListView(ModelView):
     form = TagListForm
     
 class ProjectView(ModelView):
-    column_list = ('projectName', 'task', 'tags', 'timeElapsed')
+    column_list = ('projectid', 'projectName', 'task', 'tags', 'timeElapsed')
     form = ProjectForm
 
 class EventView(ModelView):
@@ -492,7 +502,11 @@ def add_project_data():
     tags = data.get('tags') 
     timeElapsed = data.get('timeElapsed')
     
+    # Generate projectid using ObjectId
+    projectid = str(ObjectId())
+
     new_project = {
+        'projectid': projectid,
         'projectName': projectName,
         'task': task,
         'tags': tags,
@@ -501,9 +515,28 @@ def add_project_data():
     result = db.projects.insert_one(new_project)
     
     if result.inserted_id:
-        return jsonify({'message': 'Project data added successfully!'}), 201
+        return jsonify({'message': 'Project data added successfully!', 'projectid': projectid}), 201
     else:
         return jsonify({'error': 'Failed to add project data.'}), 500
-    
+
+@app.route('/auth/update_project_data/<index>', methods=['POST'])
+def update_project_data(index):
+    data = request.json
+    projectid = data.get('projectid')
+    task = data.get('task')
+    projectName = data.get('projectName')
+    tags = data.get('tags')
+    timeElapsed = data.get('timeElapsed')
+
+    result = db.projects.update_one(
+        {'projectid': index},
+        {'$set': {'projectid': projectid, 'task': task, 'projectName': projectName, 'tags': tags, 'timeElapsed': timeElapsed}}
+    )
+
+    if result.modified_count > 0:
+        return jsonify({'message': 'Project data updated successfully!'}), 200
+    else:
+        return jsonify({'error': 'Failed to update project data.'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='localhost', port=5000)
